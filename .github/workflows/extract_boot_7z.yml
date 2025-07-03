@@ -1,54 +1,52 @@
-name: Extract boot.7z and Commit
+name: Extract boot.7z and Commit to Root
 
 on:
   push:
-    # 当 boot.7z 文件被推送到仓库时触发此工作流
     paths:
-      - 'boot.7z'
-      # 如果 boot.7z 在子目录中，例如 'firmware/boot.7z'，则更改路径：
-      # - 'firmware/boot.7z'
+      - 'boot.7z' # 当 boot.7z 文件被推送到仓库时触发此工作流
   workflow_dispatch:
-    # 允许您手动从 GitHub Actions 页面运行此工作流，方便测试
+    # 允许你手动从 GitHub Actions 页面运行此工作流，方便测试
 
 jobs:
   extract_and_commit:
-    runs-on: ubuntu-latest # 或者 'windows-latest' 如果你希望在 Windows 环境中解压
+    runs-on: ubuntu-latest # 或者 'windows-latest' 如果你需要特定的 Windows 环境
 
     steps:
-      - name: Checkout repository # 步骤1: 检出仓库代码
-        uses: actions/checkout@v4 # 使用 actions/checkout@v4 确保获取最新代码和所有历史记录
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # 这很重要，因为它确保了 Git Action 有权限推送更改
+          # 否则，它可能无法提交和推送解压后的文件。
+          # 'token: ${{ secrets.GITHUB_TOKEN }}' 是 actions/checkout@v4 的默认值，
+          # 但明确写出来能让你更清楚地理解其作用。
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install 7-Zip # 步骤2: 安装 7-Zip 解压工具
-        # 对于 Ubuntu/Linux runner
+      - name: Install 7-Zip
         run: |
           sudo apt-get update
           sudo apt-get install p7zip-full -y
-        # 对于 Windows runner，可以跳过此步骤，或者使用 Scoop/Chocolatey 安装 7-Zip
-        # run: choco install 7zip --no-progress
 
-      - name: Extract boot.7z # 步骤3: 执行解压操作
-        # 假设 boot.7z 在仓库根目录
+      - name: Delete original boot.7z file # 新增步骤：删除原文件
+        run: rm boot.7z
+
+      - name: Extract boot.7z to root directory # 修改步骤：解压到根目录
         run: |
-          mkdir -p extracted_boot # 创建一个用于存放解压文件的目录
-          7z x boot.7z -o./extracted_boot # 将 boot.7z 解压到 extracted_boot 目录
+          # 7z x boot.7z -o./ 表示解压到当前目录 (即仓库根目录)
+          7z x boot.7z -o./
           # 如果 boot.7z 有密码，可以使用 -p 选项：
-          # 7z x boot.7z -o./extracted_boot -pYOUR_PASSWORD_HERE
+          # 7z x boot.7z -o./ -pYOUR_PASSWORD_HERE
 
-      - name: Configure Git for Commit # 步骤4: 配置 Git 用户信息，以便进行提交
+      - name: Configure Git for Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Add and Commit extracted files # 步骤5: 添加并提交解压后的文件
+      - name: Add and Commit extracted files and deletion
         run: |
-          git add extracted_boot # 添加解压后的目录到暂存区
-          git diff-index --quiet HEAD || git commit -m "Automated: Extract boot.7z" # 检查是否有实际更改，再提交
-          # 上一行命令的解释：
-          # git diff-index --quiet HEAD: 检查工作区和索引是否有与HEAD不同的文件
-          # || git commit -m "...": 如果有不同 (即有更改)，则执行提交
+          git add . # 添加所有更改，包括解压后的文件和 boot.7z 的删除
+          git diff-index --quiet HEAD || git commit -m "Automated: Extract boot.7z to root and remove original"
 
-      - name: Push changes # 步骤6: 推送更改到远程仓库
-        # 使用 GITHUB_TOKEN 进行认证。这是 GitHub Actions 自动提供的一个临时令牌。
+      - name: Push changes
         run: git push
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # 再次确认使用 GITHUB_TOKEN 进行认证
