@@ -1,4 +1,4 @@
-name: Extract boot.7z and Commit to Root
+name: Extract boot.7z to Root (Keep Original)
 
 on:
   push:
@@ -15,10 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # 这很重要，因为它确保了 Git Action 有权限推送更改
-          # 否则，它可能无法提交和推送解压后的文件。
-          # 'token: ${{ secrets.GITHUB_TOKEN }}' 是 actions/checkout@v4 的默认值，
-          # 但明确写出来能让你更清楚地理解其作用。
+          # 这确保了 Git Action 有权限推送更改
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install 7-Zip
@@ -26,10 +23,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install p7zip-full -y
 
-      - name: Delete original boot.7z file # 新增步骤：删除原文件
-        run: rm boot.7z
-
-      - name: Extract boot.7z to root directory # 修改步骤：解压到根目录
+      - name: Extract boot.7z to root directory # 解压到根目录
         run: |
           # 7z x boot.7z -o./ 表示解压到当前目录 (即仓库根目录)
           7z x boot.7z -o./
@@ -41,12 +35,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Add and Commit extracted files and deletion
+      - name: Add and Commit extracted files
         run: |
-          git add . # 添加所有更改，包括解压后的文件和 boot.7z 的删除
-          git diff-index --quiet HEAD || git commit -m "Automated: Extract boot.7z to root and remove original"
+          # 添加所有新文件或修改的文件，但不包括 boot.7z 的删除操作
+          git add .
+          # 仅在有实际更改时才提交
+          git diff-index --quiet HEAD || git commit -m "Automated: Extract boot.7z to root"
 
       - name: Push changes
         run: git push
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # 再次确认使用 GITHUB_TOKEN 进行认证
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # 使用 GITHUB_TOKEN 进行认证
