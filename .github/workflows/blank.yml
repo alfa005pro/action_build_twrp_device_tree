@@ -11,6 +11,10 @@ on:
         description: 'URL to recovery/boot image'
         required: true
         default: 'https://github.com/momo54181/action_build_twrp_device_tree/raw/main/recovery.img'
+      DEVICE_CODENAME:
+        description: 'Device codename (e.g., PEAM00)'
+        required: true
+        default: 'PEAM00'
 
 jobs:
   generate-device-tree:
@@ -39,13 +43,19 @@ jobs:
     - name: Download recovery image
       run: |
         wget -O recovery.img "${{ github.event.inputs.IMG_URL }}"
-        file recovery.img || true  # Display file info for debugging
+        file recovery.img || true
       
+    - name: Create build.prop with device info
+      run: |
+        echo "ro.product.system.device=${{ github.event.inputs.DEVICE_CODENAME }}" > build.prop
+        cat build.prop || true  # Display the content for debugging
+
     - name: Generate device tree
       run: |
         mkdir -p device_tree_output
         python3 -m twrpdtgen \
           -o device_tree_output \
+          --build-prop build.prop \
           recovery.img
         
     - name: Compress device tree
